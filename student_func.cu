@@ -141,8 +141,30 @@ void gaussian_blur(const unsigned char* const inputChannel,
   //by having any threads mapped there return early
   if (thread_2D_pos.x >= numCols || thread_2D_pos.y >= numRows)
     return;
+    
+  int r = thread_2D_pos.y;
+  int c = thread_2D_pos.x;
+  float result = 0.f;
+  //For every value in the filter around the pixel (c, r)
+  for (int filter_r = -filterWidth/2; filter_r <= filterWidth/2; ++filter_r) {
+    for (int filter_c = -filterWidth/2; filter_c <= filterWidth/2; ++filter_c) {
+      //Find the global image position for this filter position
+      //clamp to boundary of the image
+      int image_r = min(max(r + filter_r, 0), static_cast<int>(numRows - 1));
+      int image_c = min(max(c + filter_c, 0), static_cast<int>(numCols - 1));
+
+      float image_value = static_cast<float>(inputChannel[image_r * numCols + image_c]);
+      float filter_value = filter[(filter_r + filterWidth/2) * filterWidth + filter_c + filterWidth/2];
+
+      result += image_value * filter_value;
+    }
+  }
+  
+  //printf("%f %d %d\n", result, (unsigned char) result, inputChannel[thread_1D_pos]);
   
   outputChannel[thread_1D_pos] = inputChannel[thread_1D_pos];
+  //outputChannel[thread_1D_pos] = (unsigned char) result;
+  //outputChannel[thread_1D_pos] = result;
 }
 
 //This kernel takes in an image represented as a uchar4 and splits
@@ -219,7 +241,6 @@ float         *d_filter;
 void allocateMemoryAndCopyToGPU(const size_t numRowsImage, const size_t numColsImage,
                                 const float* const h_filter, const size_t filterWidth)
 {
-  printf("filterWidth:%d\n", filterWidth);
 
   //allocate memory for the three different channels
   //original
@@ -234,7 +255,7 @@ void allocateMemoryAndCopyToGPU(const size_t numRowsImage, const size_t numColsI
   //be sure to use checkCudaErrors like the above examples to
   //be able to tell if anything goes wrong
   //IMPORTANT: Notice that we pass a pointer to a pointer to cudaMalloc
-  checkCudaErrors(cudaMalloc(&d_filter,  sizeof(float) * filterWidth));
+  checkCudaErrors(cudaMalloc(&d_filter,  sizeof(float) * filterWidth * filterWidth));
 
   //TODO:
   //Copy the filter on the host (h_filter) to the memory you just allocated
@@ -281,7 +302,7 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
                    numCols,
                    d_filter,
                    filterWidth);
-  gaussian_blur<<<gridSize, blockSize>>>(d_green,
+  /*gaussian_blur<<<gridSize, blockSize>>>(d_green,
                    d_greenBlurred,
                    numRows,
                    numCols,
@@ -292,7 +313,7 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
                    numRows,
                    numCols,
                    d_filter,
-                   filterWidth);
+                   filterWidth);*/
 
   // Again, call cudaDeviceSynchronize(), then call checkCudaErrors() immediately after
   // launching your kernel to make sure that you didn't make any mistakes.
