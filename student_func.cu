@@ -155,6 +155,29 @@ void separateChannels(const uchar4* const inputImageRGBA,
   // {
   //     return;
   // }
+  
+  const int2 thread_2D_pos = make_int2( blockIdx.x * blockDim.x + threadIdx.x,
+                                        blockIdx.y * blockDim.y + threadIdx.y);
+
+  const int thread_1D_pos = thread_2D_pos.y * numCols + thread_2D_pos.x;
+
+  //make sure we don't try and access memory outside the image
+  //by having any threads mapped there return early
+  if (thread_2D_pos.x >= numCols || thread_2D_pos.y >= numRows)
+    return;
+
+  /*unsigned char red   = redChannel[thread_1D_pos];
+  unsigned char green = greenChannel[thread_1D_pos];
+  unsigned char blue  = blueChannel[thread_1D_pos];
+
+  //Alpha should be 255 for no transparency
+  uchar4 outputPixel = make_uchar4(red, green, blue, 255);
+
+  outputImageRGBA[thread_1D_pos] = outputPixel;*/
+  
+  redChannel[thread_1D_pos] = inputImageRGBA[thread_1D_pos].x;
+  greenChannel[thread_1D_pos] = inputImageRGBA[thread_1D_pos].y;
+  blueChannel[thread_1D_pos] = inputImageRGBA[thread_1D_pos].z;
 }
 
 //This kernel takes in three color channels and recombines them
@@ -226,12 +249,12 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
     printf("START\n");
 
   //TODO: Set reasonable block size (i.e., number of threads per block)
-  const dim3 blockSize;
+  const dim3 blockSize(32,32,1);
 
   //TODO:
   //Compute correct grid size (i.e., number of blocks per kernel launch)
   //from the image size and and block size.
-  const dim3 gridSize;
+  const dim3 gridSize(numRows/blockSize.x,numCols/blockSize.y,1);
 
   //TODO: Launch a kernel for separating the RGBA image into different color channels
   separateChannels<<<gridSize, blockSize>>>(d_inputImageRGBA,
